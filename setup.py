@@ -2,9 +2,20 @@ import os
 
 from setuptools import setup
 from setuptools.extension import Extension
-from Cython.Build import cythonize
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    def cythonize(extensions):
+        return extensions
 
-JOSE_DIR = '../jose'
+
+requirements = []
+# setup_requires = ['Cython']
+test_requires = ['pytest']
+test_pep8_requires = ['flake8', 'flake8-import-order', 'pep8-naming']
+test_docs_requires = ['docutils', 'markdown']
+
+JOSE_DIR = os.path.abspath(os.environ.get('JOSE_DIR', '../jose'))
 JOSE_LIBRARY_DIR = os.path.join(JOSE_DIR, '.libs')
 
 extensions = [
@@ -38,4 +49,12 @@ setup(
         'Topic :: Security',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
+    # setup_requires=setup_requires,
+    install_requires=requirements,
+    tests_require=test_requires,
+    extras_require={
+        'test': test_requires,
+        'test_docs': test_docs_requires,
+        'test_pep8': test_pep8_requires,
+    },
 )
