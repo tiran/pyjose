@@ -1,8 +1,12 @@
 jose.c
-jose.so
+jose.egg-info
+jose*.so
+
 /build
 /dist
-/jose.egg-info
+/.tox
+/.cache
+
 *.pyc
 __pycache__
 

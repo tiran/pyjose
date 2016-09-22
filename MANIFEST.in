@@ -1,0 +1,11 @@
+include setup.py setup.cfg
+include Makefile
+include LICENSE README
+include *.md
+include *.ini
+include *.pxd
+include pyjose.pyx pyjose.c
+
+# recursive-include docs *.py *.rst Makefile
+
+recursive-include tests *.py
