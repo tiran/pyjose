@@ -6,6 +6,13 @@ cdef extern from "stdbool.h":
     ctypedef signed char bool
 
 
+cdef extern from "openssl/crypto.h":
+    unsigned long SSLeay()
+    const char* SSLeay_version(int type)
+    unsigned long OPENSSL_VERSION_NUMBER
+    int SSLEAY_VERSION
+
+
 cdef extern from "jose/buf.h":
     ctypedef struct jose_buf_t:
         size_t size

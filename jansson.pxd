@@ -14,6 +14,8 @@ cdef extern from "jansson.h":
         char *source
         char *text
 
+    int JANSSON_MAJOR_VERSION, JANSSON_MINOR_VERSION, JANSSON_MICRO_VERSION
+
     json_t *json_pack(const char *fmt, ...)
     json_t *json_pack_ex(json_error_t *error, size_t flags, const char *fmt, ...)
 
