@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 
@@ -78,3 +79,32 @@ class JoseTests(unittest.TestCase):
         self.assertRaises(TypeError, jose.compact.dumps, b'')
         self.assertRaises(TypeError, jose.compact.dumps, u'')
         self.assertRaises(jose.JoseOperationError, jose.compact.dumps, {})
+
+
+class JoseVectorTests(unittest.TestCase):
+    def json_vector(self, name):
+        filename = os.path.join(HERE, 'vectors', name)
+        with open(filename) as f:
+            js = json.load(f)
+        self.assertIsInstance(js, dict)
+        return js
+
+    def compact_vector(self, name):
+        filename = os.path.join(HERE, 'vectors', name)
+        with open(filename, 'rb') as f:
+            data = f.read()
+        js = jose.compact.loads(data)
+        self.assertIsInstance(js, dict)
+        self.assertEqual(jose.compact.dumps(js), data)
+        return js
+
+    def test_jws_rfc7515(self):
+        names = ['rfc7515_A.1', 'rfc7515_A.2', 'rfc7515_A.3', 'rfc7515_A.4']
+        for name in names:
+            jws = self.compact_vector(name + '.jwsc')
+            jwk = self.json_vector(name + '.jwk')
+            self.assertTrue(jose.jws.verify(jws, jwk), name)
+        # 'rfc7515_A.5' not supported
+        # 'rfc7515_A.6'
+        # 'rfc7515_A.7'
+        # 'rfc7515_B'
