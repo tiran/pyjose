@@ -1,95 +1,127 @@
 from libc.stdlib cimport free
+from cpython.version cimport PY_MAJOR_VERSION
+
 cimport jansson
 cimport jose
 
 import json
 
 
-def jwk_generate(jwk):
-    cdef jansson.json_t *cjwk = NULL
+# helper functions
+cdef jansson.json_t *dumps(dict obj) except NULL:
+    """Convert Python dict to json_t*
+
+    Returns a new reference.
+    """
+    cdef jansson.json_t *js = NULL
+
+    jsons = json.dumps(obj, separators=(',', ':'), allow_nan=False)
+    if PY_MAJOR_VERSION >= 3:
+        jsons = jsons.encode('utf-8')
+
+    js = jansson.json_loads(jsons, 0, NULL)
+    if js is NULL:
+        raise ValueError("Failed to load json", obj)
+    return js
+
+
+cdef loads(jansson.json_t *js):
+    """Convert json_t* to Python object
+
+    Does not decrement reference count of json_t.
+    """
     cdef char *ret = NULL
 
-    assert isinstance(jwk, dict)
+    ret = jansson.json_dumps(js, 0)
+    if ret is NULL:
+        raise ValueError("Failed to convert")
 
     try:
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
+        jsons = ret.decode('utf-8')
+        return json.loads(jsons)
+    finally:
+        free(ret)
 
+
+cdef bytes _to_asciibytes(obj):
+    """Convert str, unicode, bytes to ascii bytes
+
+    None is returned as None. Cython converts <bytes>None to NULL.
+    """
+    if obj is None:
+        return None
+    elif type(obj) is bytes:
+        return <bytes>obj
+    elif PY_MAJOR_VERSION < 3 and isinstance(obj, unicode):
+        return <bytes>obj.encode('ascii')
+    elif PY_MAJOR_VERSION >= 3 and isinstance(obj, str):
+        return <bytes>obj.encode('ascii')
+    else:
+        raise TypeError(type(obj))
+
+cdef _ascii_fromchar(const char* s):
+    """Convert char[] to ASCII
+
+    Does not free() s.
+    """
+    if PY_MAJOR_VERSION < 3:
+        return <bytes>s
+    else:
+        return (<bytes>s).decode('ascii')
+
+
+# jwk
+def jwk_generate(jwk):
+    cdef jansson.json_t *cjwk = NULL
+
+    cjwk = dumps(jwk)
+    try:
         assert jose.jose_jwk_generate(cjwk)
 
-        ret = jansson.json_dumps(cjwk, 0)
-        assert ret
-
         jwk.clear()
-        jwk.update(json.loads(ret))
+        jwk.update(loads(cjwk))
     finally:
         jansson.json_decref(cjwk)
-        free(ret)
 
 
 def jwk_clean(jwk):
     cdef jansson.json_t *cjwk = NULL
-    cdef char *ret = NULL
 
-    assert isinstance(jwk, dict)
-
+    cjwk = dumps(jwk)
     try:
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
-
         assert jose.jose_jwk_clean(cjwk)
 
-        ret = jansson.json_dumps(cjwk, 0)
-        assert ret
-
         jwk.clear()
-        jwk.update(json.loads(ret))
+        jwk.update(loads(cjwk))
     finally:
         jansson.json_decref(cjwk)
-        free(ret)
 
 
-def jwk_allowed(jwk, req=False, use=None, op=None):
+def jwk_allowed(jwk, bool req=False, use=None, op=None):
     cdef jansson.json_t *cjwk = NULL
-    cdef const char *cuse = NULL
-    cdef const char *cop = NULL
+    cdef bytes buse, bop
 
-    assert isinstance(jwk, dict)
-    assert op is None or isinstance(op, unicode)
-    assert use is None or isinstance(use, unicode)
-
-    if use is not None:
-        use = use.encode(u"UTF-8")
-        cuse = use
-
-    if op is not None:
-        op = op.encode(u"UTF-8")
-        cop = op
-
+    buse = _to_asciibytes(use)
+    bop = _to_asciibytes(op)
+    cjwk = dumps(jwk)
     try:
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
-
-        return True if jose.jose_jwk_allowed(cjwk, req, cuse, cop) else False
+        return True if jose.jose_jwk_allowed(cjwk, req, buse, bop) else False
     finally:
         jansson.json_decref(cjwk)
 
 
 def jwk_thumbprint(jwk, hash=u"sha1"):
     cdef jansson.json_t *cjwk = NULL
-    cdef char *ret = NULL
+    cdef char *ret
+    cdef bytes bhash
 
-    assert isinstance(jwk, dict)
-    assert isinstance(hash, unicode)
-
+    bhash = _to_asciibytes(hash)
+    cjwk = dumps(jwk)
     try:
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
-
-        ret = jose.jose_jwk_thumbprint(cjwk, hash)
+        ret = jose.jose_jwk_thumbprint(cjwk, bhash)
         assert ret
 
-        return <bytes> ret
+        return _ascii_fromchar(ret)
     finally:
         jansson.json_decref(cjwk)
         free(ret)
