@@ -6,10 +6,6 @@ cdef extern from "stdbool.h":
     ctypedef signed char bool
 
 
-cdef extern from "openssl/evp.h":
-    void OpenSSL_add_all_algorithms()
-
-
 cdef extern from "jose/buf.h":
     ctypedef struct jose_buf_t:
         size_t size
