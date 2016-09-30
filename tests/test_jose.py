@@ -25,3 +25,9 @@ class JoseTests(unittest.TestCase):
             u'k': u'cVoUQRUE5rk3V2YbqZG38Q'}
         self.assertEqual(jose.jwk_thumbprint(jwk),
                          'lUPQ1EXWqsVivPRUWgUssyOULBw')
+
+    def test_exception(self):
+        exc = jose.JoseOperationError('test')
+        self.assertEqual(exc.op, 'test')
+        self.assertEqual(exc.openssl_errors, None)
+        self.assertEqual(str(exc), "JOSE operation 'test' failed.")

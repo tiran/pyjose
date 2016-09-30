@@ -1,10 +1,43 @@
 from libc.stdlib cimport free
+from libc cimport stdio
 from cpython.version cimport PY_MAJOR_VERSION
 
 cimport jansson
 cimport jose
+cimport openssl
 
 import json
+
+
+cdef unicode get_openssl_errors():
+    cdef openssl.BIO *bio
+    cdef long length
+    cdef char *buf
+
+    if openssl.ERR_peek_error() == 0:
+        return None
+
+    bio = openssl.BIO_new(openssl.BIO_s_mem())
+    if bio is NULL:
+        raise MemoryError
+    openssl.ERR_print_errors(bio)
+    try:
+        length = openssl.BIO_get_mem_data(bio, &buf)
+        if length < 0:
+            raise ValueError
+        return buf[:length].decode('utf-8')
+    finally:
+        openssl.BIO_free(bio)
+
+
+class JoseOperationError(Exception):
+    def __init__(self, str op):
+        self.op = op
+        self.openssl_errors = get_openssl_errors()
+        msg = "JOSE operation '{}' failed.".format(op)
+        if self.openssl_errors:
+            msg = '\n'.join((msg, self.openssl_errors))
+        super(JoseOperationError, self).__init__(msg)
 
 
 # helper functions
@@ -76,7 +109,8 @@ def jwk_generate(jwk):
 
     cjwk = dumps(jwk)
     try:
-        assert jose.jose_jwk_generate(cjwk)
+        if not jose.jose_jwk_generate(cjwk):
+            raise JoseOperationError('jwk_generate')
 
         jwk.clear()
         jwk.update(loads(cjwk))
@@ -455,7 +489,8 @@ cdef init():
     jansson.json_object_seed(0)
 
     # initialize OpenSSL
-    jose.OpenSSL_add_all_algorithms()
+    openssl.OpenSSL_add_all_algorithms()
+    openssl.ERR_load_crypto_strings()
 
     # try to import _ssl to set up threading locks
     try:

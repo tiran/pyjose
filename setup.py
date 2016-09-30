@@ -21,7 +21,7 @@ extensions = [
     Extension(
         'jose',
         sources=['jose.pyx'],
-        depends=['jansson.pxd', 'jose.pxd', 'setup.py'],
+        depends=['jansson.pxd', 'jose.pxd', 'openssl.pxd', 'setup.py'],
         include_dirs=[JOSE_DIR],
         libraries=['jose', 'jose-openssl', 'jose-zlib'],
         library_dirs=[JOSE_LIBRARY_DIR],
