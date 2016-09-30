@@ -14,18 +14,27 @@ test_requires = ['pytest']
 test_pep8_requires = ['flake8', 'flake8-import-order', 'pep8-naming']
 test_docs_requires = ['docutils', 'markdown']
 
+include_dirs = []
+library_dirs = []
+extra_link_args = []
+
 JOSE_DIR = os.path.abspath(os.environ.get('JOSE_DIR', '../jose'))
-JOSE_LIBRARY_DIR = os.path.join(JOSE_DIR, '.libs')
+if os.path.isdir(JOSE_DIR):
+    JOSE_LIBRARY_DIR = os.path.join(JOSE_DIR, '.libs')
+    include_dirs.append(JOSE_DIR)
+    library_dirs.append(JOSE_LIBRARY_DIR)
+    extra_link_args.append('-Wl,-rpath,' + JOSE_LIBRARY_DIR)
+
 
 extensions = [
     Extension(
         'jose',
         sources=['jose.pyx'],
         depends=['jansson.pxd', 'jose.pxd', 'setup.py'],
-        include_dirs=[JOSE_DIR],
-        libraries=['jose', 'jose-openssl', 'jose-zlib'],
-        library_dirs=[JOSE_LIBRARY_DIR],
-        extra_link_args=['-Wl,-rpath,' + JOSE_LIBRARY_DIR],
+        libraries=['jose', 'jose-openssl', 'jose-zlib', 'crypto'],
+        include_dirs=include_dirs,
+        library_dirs=library_dirs,
+        extra_link_args=extra_link_args,
     ),
 ]
 
