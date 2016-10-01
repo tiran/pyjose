@@ -488,6 +488,8 @@ cdef init():
     # init jansson hash randomization seed
     jansson.json_object_seed(0)
 
+    jose_load_all_plugins()
+
     # initialize OpenSSL
     openssl.OpenSSL_add_all_algorithms()
     openssl.ERR_load_crypto_strings()

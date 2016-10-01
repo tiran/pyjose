@@ -40,3 +40,7 @@ cdef extern from "jose/jws.h":
 cdef extern from "jose/jose.h":
     jansson.json_t *jose_from_compact(const char *jose)
     char *jose_to_compact(const jansson.json_t *jose)
+
+cdef extern from "jose/hooks.h":
+    bool jose_load_all_plugins()
+
