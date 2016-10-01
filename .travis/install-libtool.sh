@@ -13,24 +13,24 @@ trap "rm -rf $DEST $TEMPDIR/libtool-${VERSION}" ERR
 trap "rm -rf $TEMPDIR/libtool-${VERSION}" EXIT
 
 if [ -f $DEST ]; then
-    echo "libtool-{VERSION} is already installed"
+    echo "libtool-${VERSION} is already installed"
     exit 0
 fi
 
-echo "installing libtool-{VERSION}"
+echo "installing libtool-${VERSION}"
 
 mkdir -p $TEMPDIR
 cd $TEMPDIR
 
 wget http://ftp.gnu.org/gnu/libtool/libtool-${VERSION}.tar.gz
 
-tar xzvf libtool-${VERSION}.tar.gz
+tar xzf libtool-${VERSION}.tar.gz
 
 cd libtool-${VERSION}
-./configure --prefix=${PACKAGEHOME}
-make -j1
+./configure --prefix=${PACKAGEHOME} --silent
+make
 make install
 
 hash -r
 
-echo "installed libtool-{VERSION}"
+echo "installed libtool-${VERSION}"

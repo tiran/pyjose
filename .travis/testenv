@@ -6,5 +6,6 @@ export LD_LIBRARY_PATH="${PACKAGEHOME}/lib"
 export PKG_CONFIG_PATH="${PACKAGEHOME}/lib/pkgconfig"
 export PATH="${PACKAGEHOME}/bin:$PATH"
 export TOX_TESTENV_PASSENV="LD_RUN_PATH,LD_LIBRARY_PATH"
+export MAKEFLAGS="--quiet"
 
 mkdir -p "${PACKAGEHOME}"

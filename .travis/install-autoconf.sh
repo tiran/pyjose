@@ -13,11 +13,11 @@ trap "rm -rf $DEST $TEMPDIR/autoconf-${VERSION}" ERR
 trap "rm -rf $TEMPDIR/autoconf-${VERSION}" EXIT
 
 if [ -f $DEST ]; then
-    echo "autoconf-{VERSION} is already installed"
+    echo "autoconf-${VERSION} is already installed"
     exit 0
 fi
 
-echo "installing autoconf-{VERSION}"
+echo "installing autoconf-${VERSION}"
 
 # copy aclocal macros
 mkdir -p ${PACKAGEHOME}/share/aclocal
@@ -28,13 +28,13 @@ cd $TEMPDIR
 
 wget http://ftp.gnu.org/gnu/autoconf/autoconf-${VERSION}.tar.gz
 
-tar xzvf autoconf-${VERSION}.tar.gz
+tar xzf autoconf-${VERSION}.tar.gz
 
 cd autoconf-${VERSION}
-./configure --prefix=${PACKAGEHOME}
-make -j1
+./configure --prefix=${PACKAGEHOME} --silent
+make
 make install
 
 hash -r
 
-echo "installed autoconf-{VERSION}"
+echo "installed autoconf-${VERSION}"

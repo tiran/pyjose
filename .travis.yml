@@ -20,6 +20,7 @@ env:
     - SSL_CERT_DIR="/etc/ssl/certs"
     - SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
     - TOX_TESTENV_PASSENV="LD_RUN_PATH,LD_LIBRARY_PATH"
+    - MAKEFLAGS="--quiet"
 
 matrix:
   include:
@@ -37,16 +38,12 @@ matrix:
       env: TOXENV=pep8py3
 
 install:
-  - pip install --upgrade pip setuptools
-  - pip --version
-  - pip install tox
-  - tox --version
-  - pip install cython
-  - cython --version
+  - gcc -v
   - mkdir -p $PACKAGEHOME
   # Ubuntu Trusty has OpenSSL 1.0.1 but jose requires 1.0.2+
   - ./.travis/install-openssl.sh
   - openssl version
+  - echo | openssl dgst -sha256 -hex
   - pkg-config openssl --cflags --libs
   # jansson
   - ./.travis/install-jansson.sh
@@ -59,6 +56,14 @@ install:
   - automake --version
   # now jose with updated autotools
   - ./.travis/install-jose.sh
+  # install Python base dependencies
+  - pip install --upgrade pip setuptools
+  - pip --version
+  - pip install tox
+  - tox --version
+  - pip install cython
+  - cython --version
 
 script:
+  - echo "Testing"
   - tox

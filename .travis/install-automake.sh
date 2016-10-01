@@ -13,24 +13,24 @@ trap "rm -rf $DEST $TEMPDIR/automake-${VERSION}" ERR
 trap "rm -rf $TEMPDIR/automake-${VERSION}" EXIT
 
 if [ -f $DEST ]; then
-    echo "automake-{VERSION} is already installed"
+    echo "automake-${VERSION} is already installed"
     exit 0
 fi
 
-echo "installing automake-{VERSION}"
+echo "installing automake-${VERSION}"
 
 mkdir -p $TEMPDIR
 cd $TEMPDIR
 
 wget http://ftp.gnu.org/gnu/automake/automake-${VERSION}.tar.gz
 
-tar xzvf automake-${VERSION}.tar.gz
+tar xzf automake-${VERSION}.tar.gz
 
 cd automake-${VERSION}
-./configure --prefix=${PACKAGEHOME}
-make -j1
+./configure --prefix=${PACKAGEHOME}  --silent
+make
 make install
 
 hash -r
 
-echo "installed automake-{VERSION}"
+echo "installed automake-${VERSION}"
