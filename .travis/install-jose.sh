@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION=jose_list
+VERSION=plugin_load
 # VERSION=4
 
 if [ ! -d $PACKAGEHOME ]; then
@@ -52,7 +52,7 @@ make install
 
 ldd ${PACKAGEHOME}/bin/jose
 
-${PACKAGEHOME}/bin/jose list
+${PACKAGEHOME}/bin/jose sup
 
 make check || (cat test-suite.log; exit 2)
 
