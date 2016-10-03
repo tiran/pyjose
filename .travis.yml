@@ -24,6 +24,7 @@ install:
   - gcc -v
   - autoconf --version
   - automake --version
+  - libtool --version
   - openssl version
   - ./.travis/install-jansson.sh
   - pkg-config jansson --cflags --libs

@@ -9,7 +9,9 @@ rm -rf $TMPDIR
 mkdir $TMPDIR
 cd $TMPDIR
 curl "$URL" | tar -xz --strip-components=1
-./configure --silent
+./configure --silent --prefix=/usr
 make
 sudo make install
+
+sudo ldconfig
 echo "installed jansson-${VERSION}"
