@@ -1,0 +1,45 @@
+sudo: true
+dist: wily
+language: python
+cache: pip
+
+env:
+  global:
+    - MAKEFLAGS="--quiet"
+
+before_install:
+  # PPA for NGINX with a separate OpenSSL 1.0.2 package
+  - sudo add-apt-repository -y ppa:ondrej/nginx-mainline
+  # PPA with recent autoconf and automake
+  - sudo add-apt-repository -y ppa:ondrej/autotools
+  - sudo apt-get update -qq
+  - sudo apt-get install -y libssl-dev openssl
+  - sudo apt-get install -y autoconf automake
+
+install:
+  - openssl version
+  - ./.travis/install-jansson.sh
+  - ./.travis/install-jose.sh
+  - pip install --upgrade pip setuptools
+  - pip --version
+  - pip install tox cython
+  - tox --version
+  - cython --version
+
+matrix:
+  include:
+    - python: 2.7
+      env: TOXENV=py27
+    - python: 3.4
+      env: TOXENV=py34
+    - python: 3.5
+      env: TOXENV=py35
+    - python: 3.5
+      env: TOXENV=doc
+    - python: 2.7
+      env: TOXENV=pep8py2
+    - python: 3.5
+      env: TOXENV=pep8py3
+
+script:
+  - tox
