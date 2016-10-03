@@ -34,20 +34,13 @@ before_install:
 install:
   - gcc -v
   - mkdir -p $PACKAGEHOME
-  # Ubuntu Trusty has OpenSSL 1.0.1 but jose requires 1.0.2+
-  #- ./.travis/install-openssl.sh
-  - openssl version
-  - pkg-config openssl --cflags --libs
-  # jansson
-  - ./.travis/install-jansson.sh
-  - pkg-config jansson --cflags --libs
-  # Ubuntu has outdated automake and autoconf, too
-  #- ./.travis/install-autoconf.sh
-  #- ./.travis/install-automake.sh
-  #- ./.travis/install-libtool.sh
+  - gcc -v
   - autoconf --version
   - automake --version
-  # now jose with updated autotools
+  - pkg-config openssl --cflags --libs
+  - openssl version
+  - ./.travis/install-jansson.sh
+  - pkg-config jansson --cflags --libs
   - ./.travis/install-jose.sh
   # install Python base dependencies
   - pip install --upgrade pip setuptools
