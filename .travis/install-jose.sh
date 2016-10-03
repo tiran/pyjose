@@ -1,60 +1,20 @@
 #!/bin/bash
-set -e
-
+set -ex
 VERSION=plugin_load
-# VERSION=4
-
-if [ ! -d $PACKAGEHOME ]; then
-    exit 1
-fi
-
-TEMPDIR=${PACKAGEHOME}/tmp
-if [ "$VERSION" != "master" ]; then
-    REMOTE_NAME=v${VERSION}.zip
-    DEST=$TEMPDIR/$REMOTE_NAME
-    if [ -f $DEST ]; then
-        echo "jose-${VERSION} is already installed"
-        exit 0
-    fi
-else
-    REMOTE_NAME=master.zip
-    DEST=${TEMPDIR}/${REMOTE_NAME}
-    rm -f ${DEST}*
-fi
-
-REMOTE_NAME=${VERSION}.zip
-DEST=${TEMPDIR}/${REMOTE_NAME}
-
-rm -f ${DEST}*
-
-trap "rm -rf $DEST $TEMPDIR/jose-${VERSION}" ERR
-trap "rm -rf $TEMPDIR/jose-${VERSION}" EXIT
+URL=https://github.com/tiran/jose/archive/${VERSION}.tar.gz
+TMPDIR=/tmp/jose
 
 echo "installing jose-${VERSION}"
+rm -rf $TMPDIR
+mkdir $TMPDIR
+cd $TMPDIR
+curl -L "$URL" | tar -xz --strip-components=1
 
-mkdir -p $TEMPDIR
-cd $TEMPDIR
-
-# wget https://github.com/latchset/jose/archive/${REMOTE_NAME}
-wget https://github.com/tiran/jose/archive/${REMOTE_NAME}
-unzip -q -o ${REMOTE_NAME}
-
-cd jose-${VERSION}
-autoreconf -ifv
-
-./configure --prefix=${PACKAGEHOME}
+if [ ! -f configure ]; then autoreconf -ifv; fi
+./configure --silent
 make
-
-rm -rf $PACKAGEHOME/include/jose
-rm -rf $PACKAGEHOME/lib/libjose*
-
-make install
-
-ldd ${PACKAGEHOME}/bin/jose
-
-${PACKAGEHOME}/bin/jose sup
-
-make check || (cat test-suite.log; exit 2)
-
+if ! make check; then cat ./test-suite.log ; exit 1; fi
+cmd/jose sup
+sudo make install
 
 echo "installed jose-${VERSION}"

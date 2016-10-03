@@ -1,11 +1,14 @@
 #!/bin/bash
 set -ex
 VERSION=2.9
+URL=http://www.digip.org/jansson/releases/jansson-${VERSION}.tar.gz
+TMPDIR=/tmp/jansson
 
 echo "installing jansson-${VERSION}"
-cd /tmp
-curl http://www.digip.org/jansson/releases/jansson-${VERSION}.tar.gz | tar -xz
-cd jansson-${VERSION}
+rm -rf $TMPDIR
+mkdir $TMPDIR
+cd $TMPDIR
+curl "$URL" | tar -xz --strip-components=1
 ./configure --silent
 make
 sudo make install

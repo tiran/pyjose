@@ -10,15 +10,6 @@ cache:
 
 env:
   global:
-    - PACKAGEHOME="${HOME}/joselib"
-    - CPPFLAGS="-I${PACKAGEHOME}/include"
-    - LDFLAGS="-L${PACKAGEHOME}/lib"
-    - LD_RUN_PATH="${PACKAGEHOME}/lib"
-    - LD_LIBRARY_PATH="${PACKAGEHOME}/lib"
-    - PKG_CONFIG_PATH="${PACKAGEHOME}/lib/pkgconfig"
-    - PATH="${PACKAGEHOME}/bin:$PATH"
-    - SSL_CERT_DIR="/etc/ssl/certs"
-    - SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
     - TOX_TESTENV_PASSENV="LD_RUN_PATH,LD_LIBRARY_PATH"
     - MAKEFLAGS="--quiet"
 
@@ -33,11 +24,8 @@ before_install:
 
 install:
   - gcc -v
-  - mkdir -p $PACKAGEHOME
-  - gcc -v
   - autoconf --version
   - automake --version
-  - pkg-config openssl --cflags --libs
   - openssl version
   - ./.travis/install-jansson.sh
   - pkg-config jansson --cflags --libs
@@ -45,9 +33,8 @@ install:
   # install Python base dependencies
   - pip install --upgrade pip setuptools
   - pip --version
-  - pip install tox
+  - pip install tox cython
   - tox --version
-  - pip install cython
   - cython --version
 
 matrix:
