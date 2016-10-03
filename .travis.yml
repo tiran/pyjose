@@ -1,4 +1,4 @@
-sudo: false
+sudo: true
 
 language: python
 
@@ -22,28 +22,18 @@ env:
     - TOX_TESTENV_PASSENV="LD_RUN_PATH,LD_LIBRARY_PATH"
     - MAKEFLAGS="--quiet"
 
-matrix:
-  include:
-    - python: 2.7
-      env: TOXENV=py27
-    - python: 3.4
-      env: TOXENV=py34
-    - python: 3.5
-      env: TOXENV=py35
-    - python: 3.5
-      env: TOXENV=doc
-    - python: 2.7
-      env: TOXENV=pep8py2
-    - python: 3.5
-      env: TOXENV=pep8py3
+before_install:
+  # PPA for NGINX with a separate OpenSSL 1.0.2 package
+  - sudo add-apt-repository -y ppa:ondrej/nginx-mainline
+  - sudo apt-get update -qq
+  - sudo apt-get install -y libssl-dev openssl
 
 install:
   - gcc -v
   - mkdir -p $PACKAGEHOME
   # Ubuntu Trusty has OpenSSL 1.0.1 but jose requires 1.0.2+
-  - ./.travis/install-openssl.sh
+  #- ./.travis/install-openssl.sh
   - openssl version
-  - echo | openssl dgst -sha256 -hex
   - pkg-config openssl --cflags --libs
   # jansson
   - ./.travis/install-jansson.sh
@@ -63,6 +53,21 @@ install:
   - tox --version
   - pip install cython
   - cython --version
+
+matrix:
+  include:
+    - python: 2.7
+      env: TOXENV=py27
+    #- python: 3.4
+    #  env: TOXENV=py34
+    #- python: 3.5
+    #  env: TOXENV=py35
+    #- python: 3.5
+    #  env: TOXENV=doc
+    #- python: 2.7
+    #  env: TOXENV=pep8py2
+    #- python: 3.5
+    #  env: TOXENV=pep8py3
 
 script:
   - echo "Testing"
