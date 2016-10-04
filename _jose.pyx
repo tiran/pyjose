@@ -1,177 +1,197 @@
 from libc.stdlib cimport free
+from cpython.version cimport PY_MAJOR_VERSION
+
 cimport jansson
 cimport jose
 
 import json
 
 
-def jwk_generate(jwk):
-    cdef jansson.json_t *cjwk = NULL
+class JoseOperationError(Exception):
+    def __init__(self, str op):
+        msg = "JOSE operation '{}' failed.".format(op)
+        super(JoseOperationError, self).__init__(msg)
+        self.op = op
+
+
+# helper functions
+cdef jansson.json_t *obj2jansson(dict obj, str argname) except NULL:
+    """Convert Python dict to json_t*
+
+    Returns a new reference.
+    """
+    cdef jansson.json_t *cjson = NULL
+
+    jsonstr = json.dumps(obj, separators=(',', ':'), allow_nan=False)
+    if PY_MAJOR_VERSION >= 3:
+        jsonstr = jsonstr.encode('utf-8')
+
+    cjson = jansson.json_loads(jsonstr, 0, NULL)
+    if cjson is NULL:
+        raise ValueError("Failed to load json", argname, obj)
+    return cjson
+
+
+cdef jansson2obj(jansson.json_t *cjson):
+    """Convert json_t* to Python object
+
+    Does not decrement reference count of json_t.
+    """
     cdef char *ret = NULL
 
-    assert isinstance(jwk, dict)
+    ret = jansson.json_dumps(cjson, 0)
+    if ret is NULL:
+        raise ValueError("Failed to convert")
 
     try:
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
+        jsons = ret.decode('utf-8')
+        return json.loads(jsons)
+    finally:
+        free(ret)
 
-        assert jose.jose_jwk_generate(cjwk)
 
-        ret = jansson.json_dumps(cjwk, 0)
-        assert ret
+cdef bytes obj2asciibytes(obj, str argname):
+    """Convert str, unicode, bytes to ascii bytes
+
+    None is returned as None. Cython converts <bytes>None to NULL.
+    """
+    if obj is None:
+        return None
+    elif type(obj) is bytes:
+        return <bytes>obj
+    elif PY_MAJOR_VERSION < 3 and isinstance(obj, unicode):
+        return <bytes>obj.encode('ascii')
+    elif PY_MAJOR_VERSION >= 3 and isinstance(obj, str):
+        return <bytes>obj.encode('ascii')
+    else:
+        raise TypeError('Expected bytes or text for {}, got {}'.format(
+            argname, type(obj)))
+
+
+cdef ascii2obj(const char* s):
+    """Convert char[] to ASCII
+
+    Does not free() s.
+    """
+    if PY_MAJOR_VERSION < 3:
+        return <bytes>s
+    else:
+        return (<bytes>s).decode('ascii')
+
+
+# jwk
+def jwk_generate(dict jwk not None):
+    cdef jansson.json_t *cjwk = NULL
+
+    cjwk = obj2jansson(jwk, 'jwk')
+    try:
+        if not jose.jose_jwk_generate(cjwk):
+            raise JoseOperationError('jwk_generate')
 
         jwk.clear()
-        jwk.update(json.loads(ret))
+        jwk.update(jansson2obj(cjwk))
     finally:
         jansson.json_decref(cjwk)
-        free(ret)
 
 
-def jwk_clean(jwk):
+def jwk_clean(dict jwk not None):
     cdef jansson.json_t *cjwk = NULL
-    cdef char *ret = NULL
 
-    assert isinstance(jwk, dict)
-
+    cjwk = obj2jansson(jwk, 'jwk')
     try:
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
-
-        assert jose.jose_jwk_clean(cjwk)
-
-        ret = jansson.json_dumps(cjwk, 0)
-        assert ret
+        if not jose.jose_jwk_clean(cjwk):
+            raise JoseOperationError('jwk_clean')
 
         jwk.clear()
-        jwk.update(json.loads(ret))
+        jwk.update(jansson2obj(cjwk))
     finally:
         jansson.json_decref(cjwk)
-        free(ret)
 
 
-def jwk_allowed(jwk, req=False, op=None):
+def jwk_allowed(dict jwk not None, req=False, op=None):
     cdef jansson.json_t *cjwk = NULL
-    cdef const char *cop = NULL
+    cdef bytes bop
 
-    assert isinstance(jwk, dict)
-    assert op is None or isinstance(op, unicode)
-
-    if op is not None:
-        op = op.encode(u"UTF-8")
-        cop = op
-
+    bop = obj2asciibytes(op, 'op')
+    cjwk = obj2jansson(jwk, 'jwk')
+    req = bool(req)
     try:
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
-
-        return True if jose.jose_jwk_allowed(cjwk, req, cop) else False
+        return True if jose.jose_jwk_allowed(cjwk, req, bop) else False
     finally:
         jansson.json_decref(cjwk)
 
 
-def jwk_thumbprint(jwk, hash=u"sha1"):
+def jwk_thumbprint(dict jwk not None, hash=u"sha1"):
     cdef jansson.json_t *cjwk = NULL
     cdef char *ret = NULL
+    cdef bytes bhash
 
-    assert isinstance(jwk, dict)
-    assert isinstance(hash, unicode)
-
+    bhash = obj2asciibytes(hash, 'hash')
+    cjwk = obj2jansson(jwk, 'jwk')
     try:
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
+        ret = jose.jose_jwk_thumbprint(cjwk, bhash)
+        if not ret:
+            raise JoseOperationError('jwk_thumbprint')
 
-        ret = jose.jose_jwk_thumbprint(cjwk, hash)
-        assert ret
-
-        return <bytes> ret
+        return ascii2obj(ret)
     finally:
         jansson.json_decref(cjwk)
         free(ret)
 
 
-def jwk_exchange(prv, pub):
+def jwk_exchange(dict prv not None, dict pub not None):
     cdef jansson.json_t *cprv = NULL
     cdef jansson.json_t *cpub = NULL
     cdef jansson.json_t *cout = NULL
-    cdef char *ret = NULL
-
-    assert isinstance(prv, dict)
-    assert isinstance(pub, dict)
 
     try:
-        cprv = jansson.json_loads(json.dumps(prv).encode(u"UTF-8"), 0, NULL)
-        assert cprv
-
-        cpub = jansson.json_loads(json.dumps(pub).encode(u"UTF-8"), 0, NULL)
-        assert cpub
-
+        cprv = obj2jansson(prv, 'prv')
+        cpub = obj2jansson(pub, 'pub')
         cout = jose.jose_jwk_exchange(cprv, cpub)
-        assert cout
+        if not cout:
+            raise JoseOperationError('jwk_exchange')
 
-        ret = jansson.json_dumps(cout, 0)
-        assert ret
-
-        return json.loads(ret)
+        return jansson2obj(cout)
     finally:
         jansson.json_decref(cprv)
         jansson.json_decref(cpub)
-        free(ret)
 
 
-def jws_sign(jws, jwk, sig={}):
+def jws_sign(dict jws not None, dict jwk not None, dict sig=None):
     cdef jansson.json_t *cjws = NULL
     cdef jansson.json_t *cjwk = NULL
     cdef jansson.json_t *csig = NULL
-    cdef char *ret = NULL
 
-    assert isinstance(jws, dict)
-    assert isinstance(jwk, dict)
-    assert isinstance(sig, dict)
+    if sig is None:
+        sig = {}
 
     try:
-        cjws = jansson.json_loads(json.dumps(jws).encode(u"UTF-8"), 0, NULL)
-        assert cjws
+        cjws = obj2jansson(jws, 'jws')
+        cjwk = obj2jansson(jwk, 'jwk')
+        csig = obj2jansson(sig, 'sig')
 
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
-
-        csig = jansson.json_loads(json.dumps(sig).encode(u"UTF-8"), 0, NULL)
-        assert csig
-
-        assert jose.jose_jws_sign(cjws, cjwk, csig)
-
-        ret = jansson.json_dumps(cjws, 0)
-        assert ret
+        if not jose.jose_jws_sign(cjws, cjwk, csig):
+            raise JoseOperationError('jws_sign')
 
         jws.clear()
-        jws.update(json.loads(ret))
+        jws.update(jansson2obj(cjws))
     finally:
         jansson.json_decref(cjws)
         jansson.json_decref(cjwk)
         jansson.json_decref(csig)
-        free(ret)
 
 
-def jws_verify(jws, jwk, sig=None):
+def jws_verify(dict jws not None, dict jwk not None, dict sig=None):
     cdef jansson.json_t *cjws = NULL
     cdef jansson.json_t *cjwk = NULL
     cdef jansson.json_t *csig = NULL
     cdef char *ret = NULL
 
-    assert isinstance(jws, dict)
-    assert isinstance(jwk, dict)
-    assert isinstance(sig, dict) or sig is None
-
     try:
-        cjws = jansson.json_loads(json.dumps(jws).encode(u"UTF-8"), 0, NULL)
-        assert cjws
-
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
-
+        cjws = obj2jansson(jws, 'jws')
+        cjwk = obj2jansson(jwk, 'jwk')
         if sig is not None:
-            csig = jansson.json_loads(json.dumps(sig).encode(u"UTF-8"), 0, NULL)
-            assert csig
+            csig = obj2jansson(sig, 'sig')
 
         return True if jose.jose_jws_verify(cjws, cjwk, csig) else False
     finally:
@@ -180,162 +200,107 @@ def jws_verify(jws, jwk, sig=None):
         jansson.json_decref(csig)
 
 
-def jws_merge_header(jws):
+def jws_merge_header(dict jws not None):
     cdef jansson.json_t *cjws = NULL
     cdef jansson.json_t *chdr = NULL
-    cdef char *ret = NULL
-
-    assert isinstance(jws, dict)
 
     try:
-        cjws = jansson.json_loads(json.dumps(jws).encode(u"UTF-8"), 0, NULL)
-        assert cjws
-
+        cjws = obj2jansson(jws, 'jws')
         chdr = jose.jose_jws_merge_header(cjws)
-        assert chdr
+        if not chdr:
+            raise JoseOperationError('jws_merge_header')
 
-        ret = jansson.json_dumps(chdr, 0)
-        assert ret
-
-        return json.loads(ret)
+        return jansson2obj(chdr)
     finally:
         jansson.json_decref(cjws)
         jansson.json_decref(chdr)
-        free(ret)
 
 
-def jwe_encrypt(jwe, cek, pt):
+def jwe_encrypt(dict jwe not None, dict cek not None, bytes pt not None):
     cdef jansson.json_t *cjwe = NULL
     cdef jansson.json_t *ccek = NULL
-    cdef char *ret = NULL
-
-    assert isinstance(jwe, dict)
-    assert isinstance(cek, dict)
-    assert isinstance(pt, bytes)
 
     try:
-        cjwe = jansson.json_loads(json.dumps(jwe).encode(u"UTF-8"), 0, NULL)
-        assert cjwe
+        cjwe = obj2jansson(jwe, 'jwe')
+        ccek = obj2jansson(cek, 'cek')
 
-        ccek = jansson.json_loads(json.dumps(cek).encode(u"UTF-8"), 0, NULL)
-        assert cjwe
-
-        assert jose.jose_jwe_encrypt(cjwe, ccek, pt, len(pt))
-
-        ret = jansson.json_dumps(cjwe, 0)
-        assert ret
+        if not jose.jose_jwe_encrypt(cjwe, ccek, pt, len(pt)):
+            raise JoseOperationError('jwe_encrypt')
 
         jwe.clear()
-        jwe.update(json.loads(ret))
+        jwe.update(jansson2obj(cjwe))
     finally:
         jansson.json_decref(cjwe)
         jansson.json_decref(ccek)
-        free(ret)
 
 
-def jwe_wrap(jwe, cek, jwk, rcp={}):
+def jwe_wrap(dict jwe not None, dict cek not None, dict jwk not None,
+             dict rcp=None):
     cdef jansson.json_t *cjwe = NULL
     cdef jansson.json_t *ccek = NULL
     cdef jansson.json_t *cjwk = NULL
     cdef jansson.json_t *crcp = NULL
-    cdef char *ret = NULL
 
-    assert isinstance(jwe, dict)
-    assert isinstance(cek, dict)
-    assert isinstance(jwk, dict)
-    assert isinstance(rcp, dict)
+    if rcp is None:
+        rcp = {}
 
     try:
-        cjwe = jansson.json_loads(json.dumps(jwe).encode(u"UTF-8"), 0, NULL)
-        assert cjwe
+        cjwe = obj2jansson(jwe, 'jwe')
+        ccek = obj2jansson(cek, 'cek')
+        cjwk = obj2jansson(jwk, 'jwk')
+        crcp = obj2jansson(rcp, 'rcp')
 
-        ccek = jansson.json_loads(json.dumps(cek).encode(u"UTF-8"), 0, NULL)
-        assert cjwe
-
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
-
-        crcp = jansson.json_loads(json.dumps(rcp).encode(u"UTF-8"), 0, NULL)
-        assert crcp
-
-        assert jose.jose_jwe_wrap(cjwe, ccek, cjwk, crcp)
-
-        ret = jansson.json_dumps(cjwe, 0)
-        assert ret
+        if not jose.jose_jwe_wrap(cjwe, ccek, cjwk, crcp):
+            raise JoseOperationError('jwe_wrap')
 
         jwe.clear()
-        jwe.update(json.loads(ret))
-
-        free(ret)
-        ret = NULL
-
-        ret = jansson.json_dumps(ccek, 0)
-        assert ret
+        jwe.update(jansson2obj(cjwe))
 
         cek.clear()
-        cek.update(json.loads(ret))
+        cek.update(jansson2obj(ccek))
     finally:
         jansson.json_decref(cjwe)
         jansson.json_decref(ccek)
         jansson.json_decref(cjwk)
         jansson.json_decref(crcp)
-        free(ret)
 
 
-def jwe_unwrap(jwe, jwk, rcp=None):
+def jwe_unwrap(dict jwe not None, dict jwk not None, dict rcp=None):
     cdef jansson.json_t *cjwe = NULL
     cdef jansson.json_t *cjwk = NULL
     cdef jansson.json_t *crcp = NULL
     cdef jansson.json_t *ccek = NULL
-    cdef char *ret = NULL
-
-    assert isinstance(jwe, dict)
-    assert isinstance(jwk, dict)
-    assert isinstance(rcp, dict) or rcp is None
 
     try:
-        cjwe = jansson.json_loads(json.dumps(jwe).encode(u"UTF-8"), 0, NULL)
-        assert cjwe
-
-        cjwk = jansson.json_loads(json.dumps(jwk).encode(u"UTF-8"), 0, NULL)
-        assert cjwk
+        cjwe = obj2jansson(jwe, 'jwe')
+        cjwk = obj2jansson(jwk, 'jwk')
 
         if rcp is not None:
-            crcp = jansson.json_loads(json.dumps(rcp).encode(u"UTF-8"), 0, NULL)
-            assert crcp
+            crcp = obj2jansson(rcp, 'rcp')
 
         ccek = jose.jose_jwe_unwrap(cjwe, cjwk, crcp)
-        assert ccek
+        if not ccek:
+            raise JoseOperationError('jwe_unwrap')
 
-        ret = jansson.json_dumps(ccek, 0)
-        assert ret
-
-        return json.loads(ret)
+        return jansson2obj(ccek)
     finally:
         jansson.json_decref(cjwe)
         jansson.json_decref(cjwk)
         jansson.json_decref(crcp)
         jansson.json_decref(ccek)
-        free(ret)
 
 
-def jwe_decrypt(jwe, cek):
+def jwe_decrypt(dict jwe not None, dict cek not None):
     cdef jansson.json_t *cjwe = NULL
     cdef jansson.json_t *ccek = NULL
     cdef jose.jose_buf_t *pt = NULL
 
-    assert isinstance(jwe, dict)
-    assert isinstance(cek, dict)
-
     try:
-        cjwe = jansson.json_loads(json.dumps(jwe).encode(u"UTF-8"), 0, NULL)
-        assert cjwe
-
-        ccek = jansson.json_loads(json.dumps(cek).encode(u"UTF-8"), 0, NULL)
-        assert ccek
-
+        cjwe = obj2jansson(jwe, 'jwe')
+        ccek = obj2jansson(cek, 'cek')
         pt = jose.jose_jwe_decrypt(cjwe, ccek)
-        assert pt
+        if not pt:
+            raise JoseOperationError('jwe_decrypt')
 
         return pt.data[:pt.size]
     finally:
@@ -344,69 +309,51 @@ def jwe_decrypt(jwe, cek):
         jose.jose_buf_decref(pt)
 
 
-def jwe_merge_header(jwe, rcp):
+def jwe_merge_header(dict jwe not None, dict rcp not None):
     cdef jansson.json_t *cjwe = NULL
     cdef jansson.json_t *crcp = NULL
     cdef jansson.json_t *chdr = NULL
     cdef char *ret = NULL
 
-    assert isinstance(jwe, dict)
-    assert isinstance(rcp, dict)
-
     try:
-        cjwe = jansson.json_loads(json.dumps(jwe).encode(u"UTF-8"), 0, NULL)
-        assert cjwe
-
-        crcp = jansson.json_loads(json.dumps(rcp).encode(u"UTF-8"), 0, NULL)
-        assert cjwe
+        cjew = obj2jansson(jwe, 'jwe')
+        crco = obj2jansson(rcp, 'rcp')
 
         chdr = jose.jose_jwe_merge_header(cjwe, crcp)
-        assert chdr
+        if not chdr:
+            raise JoseOperationError('jwe_merge_header')
 
-        ret = jansson.json_dumps(chdr, 0)
-        assert ret
-
-        return json.loads(ret)
+        return jansson2obj(chdr)
     finally:
         jansson.json_decref(cjwe)
         jansson.json_decref(crcp)
         jansson.json_decref(chdr)
-        free(ret)
 
 
-def from_compact(compact):
+def from_compact(bytes compact not None):
     cdef jansson.json_t *cjose = NULL
-    cdef char *ret = NULL
-
-    assert isinstance(compact, str)
 
     try:
         cjose = jose.jose_from_compact(compact)
-        assert cjose
+        if not cjose:
+            raise JoseOperationError('from_compact')
 
-        ret = jansson.json_dumps(cjose, 0)
-        assert ret
-
-        return json.loads(ret)
+        return jansson2obj(cjose)
     finally:
         jansson.json_decref(cjose)
-        free(ret)
 
 
-def to_compact(flat):
+def to_compact(dict flat not None):
     cdef jansson.json_t *cjose = NULL
     cdef char *ret = NULL
 
-    assert isinstance(flat, dict)
-
+    cjose = obj2jansson(flat, 'flat')
     try:
-        cjose = jansson.json_loads(json.dumps(flat).encode(u"UTF-8"), 0, NULL)
-        assert cjose
-
         ret = jose.jose_to_compact(cjose)
-        assert ret
+        if not ret:
+            raise JoseOperationError('to_compact')
 
-        return <bytes> ret
+        return <bytes>ret
     finally:
         jansson.json_decref(cjose)
         free(ret)

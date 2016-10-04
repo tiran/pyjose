@@ -16,4 +16,6 @@
 """
 from __future__ import absolute_import
 
-# from ._jose import JoseOperationError
+from ._jose import JoseOperationError
+
+__all__ = ('JoseOperationError', )
