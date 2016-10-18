@@ -40,3 +40,51 @@ cdef extern from "jose/jws.h":
 cdef extern from "jose/jose.h":
     jansson.json_t *jose_from_compact(const char *jose)
     char *jose_to_compact(const jansson.json_t *jose)
+
+cdef extern from "jose/hooks.h":
+    ctypedef struct jose_jwk_type_t:
+        jose_jwk_type_t *next
+        bool sym
+        const char *kty
+        const char **req
+        const char **prv
+
+    ctypedef struct jose_jwk_op_t:
+        jose_jwk_op_t *next
+        const char *pub
+        const char *prv
+        const char *use
+
+    ctypedef struct jose_jwk_generator_t:
+        jose_jwk_generator_t *next
+        const char *kty
+
+    ctypedef struct jose_jwk_hasher_t:
+        jose_jwk_hasher_t *next
+        const char *name
+        size_t size
+
+    ctypedef struct jose_jws_signer_t:
+        jose_jws_signer_t *next
+        const char *alg
+
+    ctypedef struct jose_jwe_crypter_t:
+        jose_jwe_crypter_t *next
+        const char *enc
+
+    ctypedef struct jose_jwe_wrapper_t:
+        jose_jwe_wrapper_t *next
+        const char *alg
+
+    ctypedef struct jose_jwe_zipper_t:
+        jose_jwe_zipper_t *next
+        const char *zip
+
+    jose_jwk_type_t *jose_jwk_types()
+    jose_jwk_op_t *jose_jwk_ops()
+    jose_jwk_generator_t *jose_jwk_generators()
+    jose_jwk_hasher_t *jose_jwk_hashers()
+    jose_jws_signer_t *jose_jws_signers()
+    jose_jwe_crypter_t *jose_jwe_crypters()
+    jose_jwe_wrapper_t *jose_jwe_wrappers()
+    jose_jwe_zipper_t *jose_jwe_zippers()

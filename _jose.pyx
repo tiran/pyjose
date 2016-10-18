@@ -357,3 +357,96 @@ def to_compact(dict flat not None):
     finally:
         jansson.json_decref(cjose)
         free(ret)
+
+def get_supported_algorithms():
+    cdef jose.jose_jwe_crypter_t *jwe_crypter
+    cdef jose.jose_jwe_wrapper_t *jwe_wrapper
+    cdef jose.jose_jwe_zipper_t *jwe_zipper
+    cdef jose.jose_jwk_generator_t *jwk_generator
+    cdef jose.jose_jwk_hasher_t *jwk_hasher
+    cdef jose.jose_jwk_op_t *jwk_op
+    cdef jose.jose_jwk_type_t *jwk_type
+    cdef jose.jose_jws_signer_t *jws_signer
+    cdef char *p
+    cdef size_t i
+
+    result = {
+       'jwk_types': {},
+       'jwk_ops': [],
+       'jwk_generators': set(),
+       'jwk_hashers': {},
+       'jws_signers': set(),
+       'jwe_crypters': set(),
+       'jwe_wrappers': set(),
+       'jwe_zippers': set(),
+    }
+
+    jwe_crypter = jose.jose_jwe_crypters()
+    while jwe_crypter is not NULL:
+        result['jwe_crypters'].add(ascii2obj(jwe_crypter.enc))
+        jwe_crypter = jwe_crypter.next
+
+    jwe_wrapper = jose.jose_jwe_wrappers()
+    while jwe_wrapper is not NULL:
+        result['jwe_wrappers'].add(ascii2obj(jwe_wrapper.alg))
+        jwe_wrapper = jwe_wrapper.next
+
+    jwe_zipper = jose.jose_jwe_zippers()
+    while jwe_zipper is not NULL:
+        result['jwe_zippers'].add(ascii2obj(jwe_zipper.zip))
+        jwe_zipper = jwe_zipper.next
+
+    jwk_generator = jose.jose_jwk_generators()
+    while jwk_generator is not NULL:
+        result['jwk_generators'].add(ascii2obj(jwk_generator.kty))
+        jwk_generator = jwk_generator.next
+
+    jwk_hasher = jose.jose_jwk_hashers()
+    while jwk_hasher is not NULL:
+        name = ascii2obj(jwk_hasher.name)
+        result['jwk_hashers'][name] = jwk_hasher.size
+        jwk_hasher = jwk_hasher.next
+
+    jwk_op = jose.jose_jwk_ops()
+    while jwk_op is not NULL:
+        result['jwk_ops'].append(
+            (ascii2obj(jwk_op.pub),
+             ascii2obj(jwk_op.prv),
+             ascii2obj(jwk_op.use))
+        )
+        jwk_op = jwk_op.next
+
+    jwk_type = jose.jose_jwk_types()
+    while jwk_type is not NULL:
+        name = ascii2obj(jwk_type.kty)
+        reqs = []
+        prvs = []
+
+        if jwk_type.req is not NULL:
+            for i in range(255):
+                p = jwk_type.req[i]
+                if p is NULL:
+                    break
+                reqs.append(ascii2obj(p))
+
+        if jwk_type.prv is not NULL:
+            for i in range(255):
+                p = jwk_type.prv[i]
+                if p is NULL:
+                    break
+                prvs.append(ascii2obj(p))
+
+        result['jwk_types'][name] = {
+            'req': reqs,
+            'prv': prvs,
+            'sym': True if jwk_type.sym else False
+        }
+
+        jwk_type = jwk_type.next
+
+    jws_signer = jose.jose_jws_signers()
+    while jws_signer is not NULL:
+        result['jws_signers'].add(ascii2obj(jws_signer.alg))
+        jws_signer = jws_signer.next
+
+    return result

@@ -46,6 +46,59 @@ class JoseTests(unittest.TestCase):
         jose.jws.sign(jws, jwk, None)
         jose.jws.sign(jws, jwk, sig)
 
+    def test_get_supported_algorithms(self):
+        sup = jose.get_supported_algorithms()
+        self.assertEqual(
+            set(sup),
+            {'jwe_crypters', 'jwe_wrappers', 'jwe_zippers', 'jwk_generators',
+             'jwk_hashers', 'jwk_ops', 'jwk_types', 'jws_signers'})
+        self.assertEqual(
+            sup['jwe_crypters'],
+            {'A128CBC-HS256', 'A128GCM', 'A192CBC-HS384', 'A192GCM',
+             'A256CBC-HS512',  'A256GCM'}
+        )
+        self.assertEqual(
+            sup['jwe_wrappers'],
+            {'A128GCMKW', 'A128KW', 'A192GCMKW', 'A192KW',
+             'A256GCMKW', 'A256KW', 'ECDH-ES', 'ECDH-ES+A128KW',
+             'ECDH-ES+A192KW', 'ECDH-ES+A256KW', 'PBES2-HS256+A128KW',
+             'PBES2-HS384+A192KW', 'PBES2-HS512+A256KW', 'RSA-OAEP',
+             'RSA-OAEP-256', 'RSA1_5', 'dir'}
+        )
+        self.assertEqual(sup['jwe_zippers'], {'DEF'})
+        self.assertEqual(sup['jwk_generators'], {'EC', 'oct', 'RSA'})
+        self.assertEqual(
+            sup['jws_signers'],
+            {'ES256', 'ES384', 'ES512', 'HS256', 'HS384', 'HS512', 'PS256',
+             'PS384', 'PS512', 'RS256', 'RS384', 'RS512'})
+        self.assertEqual(
+            sup['jwk_hashers'],
+            {'sha1': 20,
+             'sha224': 28,
+             'sha256': 32,
+             'sha384': 48,
+             'sha512': 64})
+        self.assertEqual(
+            sorted(sup['jwk_ops']),
+            [('encrypt', 'decrypt', 'enc'),
+             ('verify', 'sign', 'sig'),
+             ('wrapKey', 'unwrapKey', 'enc')]
+        )
+        self.assertEqual(
+            sup['jwk_types'],
+            {
+                'EC': {'prv': ['d'],
+                       'req': ['crv', 'x', 'y'],
+                       'sym': False},
+                'RSA': {'prv': ['p', 'd', 'q', 'dp', 'dq', 'qi', 'oth'],
+                        'req': ['e', 'n'],
+                        'sym': False},
+                'oct': {'prv': ['k'],
+                        'req': ['k'],
+                        'sym': True},
+            }
+        )
+
     def test_compact(self):
         filename = os.path.join(HERE, 'vectors', 'rfc7515_A.1.jwsc')
         with open(filename, 'rb') as f:

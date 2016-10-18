@@ -17,5 +17,6 @@
 from __future__ import absolute_import
 
 from ._jose import JoseOperationError
+from ._jose import get_supported_algorithms
 
-__all__ = ('JoseOperationError', )
+__all__ = ('JoseOperationError', 'get_supported_algorithms')
