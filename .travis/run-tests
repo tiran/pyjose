@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+dnf update -y
+
+# check versions
+pkg-config --cflags --libs jose-openssl jose-zlib
+pip --version
+tox --version
+jose sup
+
+# test
+make distclean
+tox -r

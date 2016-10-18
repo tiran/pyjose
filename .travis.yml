@@ -1,0 +1,48 @@
+sudo: required
+# https://github.com/travis-ci/travis-ci/issues/5142
+dist: trusty
+group: edge
+language: python
+
+services:
+  - docker
+
+cache:
+  directories:
+  - $CACHE_DIR
+
+env:
+  global:
+    - CACHE_DIR=$HOME/.cache/docker
+    - CACHE_IMAGE=$CACHE_DIR/image.tar.gz
+
+matrix:
+  include:
+    - env: TOXENV=py27
+    - env: TOXENV=py35
+    - env: TOXENV=doc
+    - env: TOXENV=pep8py2
+    - env: TOXENV=pep8py3
+
+before_install:
+  - find "${CACHE_DIR}" -mtime +7 -type f -delete
+  - >
+    if [ -f "${CACHE_IMAGE}" ]; then
+        gunzip -c "${CACHE_IMAGE}" | docker load;
+    fi
+
+install:
+  - mkdir -p $CACHE_DIR
+  - >
+    if [ ! -f "${CACHE_IMAGE}" ]; then
+        docker build -t latchset/pyjose .travis/ ;
+        docker save latchset/pyjose | gzip > ${CACHE_IMAGE};
+    fi
+
+script:
+  - >
+    docker run
+    -v $(pwd):/tmp/build
+    -w /tmp/build
+    -e TOXENV=$TOXENV
+    latchset/pyjose /bin/bash -ex .travis/run-tests
