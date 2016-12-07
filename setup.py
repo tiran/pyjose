@@ -5,16 +5,18 @@ import sys
 
 from setuptools import setup
 from setuptools.extension import Extension
+
 try:
     from Cython.Build import cythonize
 except ImportError:
     def cythonize(extensions, **kwargs):
         for extension in extensions:
             for i, filename in enumerate(extension.sources):
-                if filename.endswith('.pxy'):
-                    extension.sources = filename[:-4] + '.c'
+                if filename.endswith('.pyx'):
+                    extension.sources[i] = filename[:-4] + '.c'
+                    if not os.path.isfile(extension.sources[i]):
+                        raise
         return extensions
-
 
 test_requires = ['pytest']
 test_pep8_requires = ['flake8', 'flake8-import-order', 'pep8-naming']
